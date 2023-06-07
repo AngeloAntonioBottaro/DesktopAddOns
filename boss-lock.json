@@ -1,0 +1,22 @@
+{
+	"hash": "d41d8cd98f00b204e9800998ecf8427e",
+	"updated": "2023-06-06T11:16:08.0422274-03:00",
+	"installedModules": {
+		"github.com/angeloantoniobottaro/myutilslibrary": {
+			"name": "myutilslibrary",
+			"version": "",
+			"hash": "c12530abfd99ba8e0b415c3f9a626435",
+			"artifacts": {},
+			"failed": false,
+			"changed": false
+		},
+		"github.com/angeloantoniobottaro/myvcllibrary": {
+			"name": "myvcllibrary",
+			"version": "",
+			"hash": "6e223e54fa9c847011b6f172d8751405",
+			"artifacts": {},
+			"failed": false,
+			"changed": false
+		}
+	}
+}

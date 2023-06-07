@@ -1,0 +1,12 @@
+{
+	"name": "DesktopAddOns",
+	"description": "",
+	"version": "1.0.0",
+	"homepage": "",
+	"mainsrc": "./src",
+	"projects": [],
+	"dependencies": {
+		"github.com/angeloantoniobottaro/myutilslibrary": ">0.0.0",
+		"github.com/angeloantoniobottaro/myvcllibrary": ">0.0.0"
+	}
+}
