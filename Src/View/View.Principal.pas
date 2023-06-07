@@ -39,6 +39,7 @@ type
     procedure About1Click(Sender: TObject);
     procedure TimerTerminateTimer(Sender: TObject);
     procedure Linksconf1Click(Sender: TObject);
+    procedure FormShow(Sender: TObject);
   private
     FController: IController;
     procedure DoStatus(AMessage: string);
@@ -54,6 +55,7 @@ implementation
 {$R *.dfm}
 
 uses
+  Common.Utils.MyLibrary,
   Controller.Factory,
   Model.Utils,
   View.Sobre,
@@ -63,7 +65,30 @@ procedure TViewPrincipal.FormCreate(Sender: TObject);
 begin
    ReportMemoryLeaksOnShutdown := True;
    Self.Caption                := Self.Caption + Model.Utils.SystemVersion;
+   TimerShow.Enabled           := False;
    FController                 := TController.New;
+end;
+
+procedure TViewPrincipal.FormShow(Sender: TObject);
+begin
+   if(TMyLibrary.IsAnotherInstanceRunning)then
+     Self.TerminateSystem;
+
+   FController.Sistema.OnStatus(Self.DoStatus).ConfigurationLoad;
+
+   if(not FController.Sistema.LinksLoad)then
+   begin
+      Self.DoStatus('Links não encontrados. Abrindo cadastro...');
+      Self.Linksconf1.Click;
+   end;
+
+   if(not FController.Sistema.LinksLoad)then
+   begin
+      Self.DoStatus('Links não cadastrados. Finalizando sistema...');
+      Self.TerminateSystem;
+   end;
+
+   TimerShow.Enabled := True;
 end;
 
 procedure TViewPrincipal.TimerShowTimer(Sender: TObject);
@@ -73,10 +98,6 @@ begin
 
    FController
     .Sistema
-     .OnStatus(Self.DoStatus)
-     .VerifyApplicationOpen
-     .ConfigurationLoad
-     .LinksLoad
      .DownloadFiles
      .ExtractDownloadedFiles
      .CloseBrowser
@@ -87,7 +108,7 @@ begin
       TimerTerminate.Interval := FController.Sistema.TempoFechamento;
       TimerTerminate.Enabled  := True;
       Self.DoStatus('Fechando sistema ...');
-      Exit;
+      Self.About1.Click;
    end;
 
    TimerShow.Interval := 5000;
@@ -137,6 +158,9 @@ begin
 
    StatusBar.Panels[0].Text := AMessage.Trim;
    TrayIcon.Hint            := AMessage.Trim;
+   TrayIcon.BalloonHint     := AMessage.Trim;
+   TrayIcon.ShowBalloonHint;
+   Application.ProcessMessages;
 end;
 
 procedure TViewPrincipal.Exit1Click(Sender: TObject);
@@ -146,7 +170,8 @@ end;
 
 procedure TViewPrincipal.TerminateSystem;
 begin
-   TrayIcon.Visible := False;
+   TimerShow.Enabled := False;
+   TrayIcon.Visible  := False;
    Application.Terminate;
    Abort;
 end;

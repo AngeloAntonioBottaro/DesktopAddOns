@@ -12,10 +12,10 @@ uses
   Common.Utils.MyTxtLibrary;
 
 type
-  TModelSistema = class(TInterfacedObject, iModelSistema)
+  TModelSistema = class(TInterfacedObject, IModelSistema)
   private
     FOnStatus: TProc<String>;
-    FEncerrar: Boolean;
+    FParar: Boolean;
     FIniFile: iMyIniLibrary;
     FLinksFile: iMyTxtLibrary;
     FPastaDownload: string;
@@ -26,7 +26,7 @@ type
     FTempoFechamento: Integer;
 
     procedure DoStatus(AMsg: string);
-    function Encerrar: Boolean;
+    function Parar: Boolean;
     function PastaDownload: string;
     function PastaExtrair: string;
     function Browser: string;
@@ -36,20 +36,19 @@ type
     procedure ProcessFilesDownlod;
     procedure WaitDownloadFinish;
   protected
-    function OnStatus(AValue: TProc<String>): iModelSistema;
+    function OnStatus(AValue: TProc<String>): IModelSistema;
 
-    function VerifyApplicationOpen: iModelSistema;
-    function ConfigurationLoad: iModelSistema;
-    function LinksLoad: iModelSistema;
-    function DownloadFiles: iModelSistema;
-    function ExtractDownloadedFiles: iModelSistema;
-    function CloseBrowser: iModelSistema;
-    function CloseSystem: iModelSistema;
+    function ConfigurationLoad: IModelSistema;
+    function LinksLoad: Boolean;
+    function DownloadFiles: IModelSistema;
+    function ExtractDownloadedFiles: IModelSistema;
+    function CloseBrowser: IModelSistema;
+    function CloseSystem: IModelSistema;
 
     function Fechar: Boolean;
     function TempoFechamento: Integer;
   public
-    class function New: iModelSistema;
+    class function New: IModelSistema;
     constructor Create;
   end;
 
@@ -59,7 +58,7 @@ uses
   MyVclLibrary,
   Model.Utils;
 
-class function TModelSistema.New: iModelSistema;
+class function TModelSistema.New: IModelSistema;
 begin
    Result := Self.Create;
 end;
@@ -68,13 +67,13 @@ constructor TModelSistema.Create;
 begin
    FIniFile         := TMyIniLibrary.New.Path(TMyVclLibrary.GetAppPath).Name(TMyVclLibrary.GetAppName).Section('CONFIGURATION');
    FLinksFile       := TMyTxtLibrary.New.Caminho(TMyVclLibrary.GetAppPath).Nome(TMyVclLibrary.GetAppName);
-   FEncerrar        := False;
+   FParar           := False;
    FFechar          := False;
    FLinksCounter    := 0;
    FTempoFechamento := 20000;
 end;
 
-function TModelSistema.OnStatus(AValue: TProc<String>): iModelSistema;
+function TModelSistema.OnStatus(AValue: TProc<String>): IModelSistema;
 begin
    Result    := Self;
    FOnStatus := AValue;
@@ -110,9 +109,9 @@ begin
    Result := FBrowser;
 end;
 
-function TModelSistema.Encerrar: Boolean;
+function TModelSistema.Parar: Boolean;
 begin
-   Result := FEncerrar;
+   Result := FParar;
 end;
 
 function TModelSistema.Fechar: Boolean;
@@ -120,31 +119,13 @@ begin
    Result := FFechar;
 end;
 
-function TModelSistema.VerifyApplicationOpen: iModelSistema;
+function TModelSistema.ConfigurationLoad: IModelSistema;
 begin
    Result := Self;
-   FEncerrar := False;
-   if(TMyLibrary.IsAnotherInstanceRunning)then
-   begin
-      Self.CloseSystem;
-      FEncerrar := True;
-   end;
-end;
-
-function TModelSistema.ConfigurationLoad: iModelSistema;
-begin
-   Result := Self;
-   if(Self.Encerrar)then
-     Exit;
-
    Self.DoStatus('Carregando configurações');
 
    if(not FileExists(FIniFile.Path + FIniFile.Name))then
-   begin
-      Self.CreateConfFile;
-      Self.CloseSystem;
-      Exit;
-   end;
+     Self.CreateConfFile;
 
    FPastaDownload := FIniFile.Identifier(Model.Utils.CIdentPastaDownload).ReadIniFileStr;
    FPastaExtrair  := FIniFile.Identifier(Model.Utils.CIdentPastaExtrair).ReadIniFileStr;
@@ -153,35 +134,28 @@ end;
 
 procedure TModelSistema.CreateConfFile;
 begin
-   Self.DoStatus('Criando arquivo de configurações');
-
    FIniFile
     .Identifier(Model.Utils.CIdentPastaDownload).WriteIniFile(Self.PastaDownload)
     .Identifier(Model.Utils.CIdentPastaExtrair).WriteIniFile(Self.PastaExtrair)
     .Identifier(Model.Utils.CIdentBrowser).WriteIniFile(Model.Utils.CDefaultBrowser);
 end;
 
-function TModelSistema.LinksLoad: iModelSistema;
+function TModelSistema.LinksLoad: Boolean;
 begin
-   Result := Self;
-   if(Self.Encerrar)then
-     Exit;
-
-   Self.DoStatus('Carregando links para download');
+   Result := False;
 
    if(not FileExists(FLinksFile.Caminho + FLinksFile.Nome))then
-   begin
-      FEncerrar := False;
-      Exit;
-   end;
-end;
-
-function TModelSistema.DownloadFiles: iModelSistema;
-begin
-   Result := Self;
-   if(Self.Encerrar)then
      Exit;
 
+   if(FLinksFile.ReadTxtFile.IsEmpty)then
+     Exit;
+
+   Result := True;
+end;
+
+function TModelSistema.DownloadFiles: IModelSistema;
+begin
+   Result := Self;
    Self.VerifyInternet;
    Self.ClearDownloadRepository;
    Self.ProcessFilesDownlod;
@@ -189,19 +163,15 @@ end;
 
 procedure TModelSistema.VerifyInternet;
 begin
-   if(Self.Encerrar)then
+   if(Self.Parar)then
      Exit;
-
-   Self.DoStatus('Verificando status da internet');
 
    if(not TMyLibrary.IsInternetConnected)then
    begin
       Self.DoStatus('Sem conexão com a internet');
-      FEncerrar := True;
+      FParar := True;
       Exit;
    end;
-
-   Self.DoStatus('Conexão com a internet');
 end;
 
 procedure TModelSistema.ClearDownloadRepository;
@@ -209,7 +179,7 @@ var
   LListaArquivos: TStrings;
   I: Integer;
 begin
-   if(Self.Encerrar)then
+   if(Self.Parar)then
      Exit;
 
    Self.DoStatus('Limpando a pasta de downloads');
@@ -232,7 +202,7 @@ var
   LListaLinks: TStrings;
   I: Integer;
 begin
-   if(Self.Encerrar)then
+   if(Self.Parar)then
      Exit;
 
    Self.DoStatus('Fazendo download dos arquivos');
@@ -245,13 +215,13 @@ begin
      if(LListaLinks.Count = 0)then
      begin
         Self.DoStatus('Nenhum link informado');
-        FEncerrar := True;
+        FParar := True;
         Exit;
      end;
 
      for I := 0 to LListaLinks.Count - 1 do
      begin
-        if(Self.Encerrar)then
+        if(Self.Parar)then
           Exit;
 
         Inc(FLinksCounter);
@@ -274,7 +244,7 @@ procedure TModelSistema.WaitDownloadFinish;
 var
   LListaArquivos: TStrings;
 begin
-   if(Self.Encerrar)then
+   if(Self.Parar)then
      Exit;
 
    LListaArquivos := TStringList.Create;
@@ -288,7 +258,7 @@ begin
    end;
 end;
 
-function TModelSistema.ExtractDownloadedFiles: iModelSistema;
+function TModelSistema.ExtractDownloadedFiles: IModelSistema;
 var
   LListaArquivos: TStrings;
   I: Integer;
@@ -296,7 +266,7 @@ var
 begin
    Result := Self;
 
-   if(Self.Encerrar)then
+   if(Self.Parar)then
      Exit;
 
    Self.DoStatus('Extraindo arquivos baixados para pasta: ' + Self.PastaExtrair);
@@ -319,7 +289,7 @@ begin
    Self.ClearDownloadRepository;
 end;
 
-function TModelSistema.CloseBrowser: iModelSistema;
+function TModelSistema.CloseBrowser: IModelSistema;
 begin
    Result := Self;
 
@@ -327,7 +297,7 @@ begin
    TMyLibrary.CloseApplication(Self.Browser);
 end;
 
-function TModelSistema.CloseSystem: iModelSistema;
+function TModelSistema.CloseSystem: IModelSistema;
 begin
    Result  := Self;
    FFechar := True;

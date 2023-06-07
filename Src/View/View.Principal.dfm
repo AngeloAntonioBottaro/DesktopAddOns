@@ -16,6 +16,7 @@ object ViewPrincipal: TViewPrincipal
   OldCreateOrder = False
   Position = poScreenCenter
   OnCreate = FormCreate
+  OnShow = FormShow
   PixelsPerInch = 96
   TextHeight = 13
   object pnTela: TPanel
@@ -45,7 +46,7 @@ object ViewPrincipal: TViewPrincipal
   end
   object TrayIcon: TTrayIcon
     BalloonTitle = 'Information'
-    BalloonTimeout = 2000
+    BalloonTimeout = 500
     BalloonFlags = bfInfo
     Icon.Data = {
       0000010001003030000001002000A82500001600000028000000300000006000
